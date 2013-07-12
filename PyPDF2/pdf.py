@@ -1700,19 +1700,15 @@ class PageObject(DictionaryObject):
                 content = ContentStream(content, self.pdf)
             self[NameObject("/Contents")] = content.flateEncode()
 
+
     ##
     # Locate all text drawing commands, in the order they are provided in the
-    # content stream, and extract the text.  This works well for some PDF
-    # files, but poorly for others, depending on the generator used.  This will
-    # be refined in the future.  Do not rely on the order of text coming out of
-    # this function, as it will change if this function is made more
-    # sophisticated.
+    # content stream, and extract the text. 
+    # Support method for `extractText`, but can be called directly.
     # <p>
-    # Stability: Added in v1.7, will exist for all future v1.x releases.  May
-    # be overhauled to provide more ordered text in the future.
-    # @return a unicode string object
-    def extractText(self):
-        text = u""
+    # @return a list of unicode string objects
+    def extractTextList(self, trim=False):
+        result = []
         content = self["/Contents"].getObject()
         if not isinstance(content, ContentStream):
             content = ContentStream(content, self.pdf)
@@ -1720,6 +1716,7 @@ class PageObject(DictionaryObject):
         # are strings where the byte->string encoding was unknown, so adding
         # them to the text here would be gibberish.
         for operands,operator in content.operations:
+            text = u""
             if operator == "Tj":
                 _text = operands[0]
                 if isinstance(_text, TextStringObject):
@@ -1740,7 +1737,30 @@ class PageObject(DictionaryObject):
                 for i in operands[0]:
                     if isinstance(i, TextStringObject):
                         text += i
-        return text
+            result.append(text)
+        if trim:
+            result = [x for x in textList if x and x != '\n']
+        return result
+
+
+    ##
+    # Locate all text drawing commands, in the order they are provided in the
+    # content stream, and extract the text.  This works well for some PDF
+    # files, but poorly for others, depending on the generator used.  This will
+    # be refined in the future.  Do not rely on the order of text coming out of
+    # this function, as it will change if this function is made more
+    # sophisticated.
+    # The `delimiter` optional parameter allows to set the separator to use
+    # when joining the several text "boxes" in a single string.
+    # The `trim` optional parameter, if set to True, will ignore empty lines. 
+    # 
+    # <p>
+    # Stability: Added in v1.7, will exist for all future v1.x releases.  May
+    # be overhauled to provide more ordered text in the future.
+    # @return a unicode string object
+    def extractText(self, delimiter='', trim=False):
+       return delimiter.join(self.extractTextList(trim))
+
 
     ##
     # A rectangle (RectangleObject), expressed in default user space units,
